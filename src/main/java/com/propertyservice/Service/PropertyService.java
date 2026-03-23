@@ -30,9 +30,10 @@ public class PropertyService {
 
     public Property addProperty(PropertyDto dto, MultipartFile[] files) {
 
-       Area area = areaRepository.findByName(dto.getName());
-       City city = cityRepository.findByName(dto.getName());
-       State state= stateRepository.findByName(dto.getName());
+        Area area = areaRepository.findByName(dto.getArea());
+        City city = cityRepository.findByName(dto.getCity());
+        State state = stateRepository.findByName(dto.getState());
+
 
         Property property = new Property();
         property.setName(dto.getName());
