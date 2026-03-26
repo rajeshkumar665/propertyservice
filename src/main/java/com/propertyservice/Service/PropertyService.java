@@ -1,6 +1,7 @@
 package com.propertyservice.Service;
 
 import com.propertyservice.Controller.PropertyController;
+import com.propertyservice.Dto.EmailRequest;
 import com.propertyservice.Dto.PropertyDto;
 import com.propertyservice.Dto.RoomsDto;
 import com.propertyservice.Entity.*;
@@ -33,6 +34,7 @@ public class PropertyService {
 
     @Autowired
     private S3Service s3Service;
+
 
     public Property addProperty(PropertyDto dto, MultipartFile[] files) {
 
@@ -69,6 +71,7 @@ public class PropertyService {
             propertyPhotoRepository.save(photos);
 
         }
+        
 
         return saveProperty;
 
