@@ -1,5 +1,6 @@
 package com.propertyservice.Service;
 
+import com.propertyservice.Application;
 import com.propertyservice.Controller.PropertyController;
 import com.propertyservice.Dto.EmailRequest;
 import com.propertyservice.Dto.PropertyDto;
@@ -7,6 +8,7 @@ import com.propertyservice.Dto.RoomsDto;
 import com.propertyservice.Entity.*;
 import com.propertyservice.Repository.*;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.kafka.core.KafkaTemplate;
 import org.springframework.stereotype.Service;
 import org.springframework.web.multipart.MultipartFile;
 
@@ -28,6 +30,9 @@ public class PropertyService {
     private RoomsRepository roomRepository;
     @Autowired
     private RoomAvailabilityRepository availabilityRepository;
+
+    @Autowired
+    private KafkaTemplate<String, EmailRequest> kafkaTemplate;
 
     @Autowired
     private PropertyPhotoRepository propertyPhotoRepository;
@@ -62,6 +67,9 @@ public class PropertyService {
             rooms.setBasePrice(roomsDto.getBasePrice());
             roomRepository.save(rooms);
         }
+
+        EmailRequest request = new EmailRequest("rajesh@das","property added","thanks");
+        kafkaTemplate.send(AppConstants.TOPIC,request);
 
         List<String> filreUrls = s3Service.uploadFiles(files);
         for (String url :filreUrls){
