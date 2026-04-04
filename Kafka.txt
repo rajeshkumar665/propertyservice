@@ -1,0 +1,416 @@
+✅ 1. Install Java (OpenJDK 17)
+
+sudo apt update
+sudo apt install openjdk-17-jdk -y
+java -version
+
+✅ 2. Download and Extract Kafka
+
+cd /opt
+sudo wget https://dlcdn.apache.org/kafka/3.9.1/kafka_2.12-3.9.1.tgz
+sudo tar -xvzf kafka_2.12-3.9.1.tgz
+sudo mv kafka_2.12-3.9.1 kafka
+
+✅ 3. Fix Permissions (Recommended)
+Replace ubuntu with your actual username if different:
+
+sudo chown -R ubuntu:ubuntu /opt/kafka
+
+✅ 4. Start Zookeeper
+Open Terminal 1:
+
+cd /opt/kafka
+bin/zookeeper-server-start.sh config/zookeeper.properties
+✅ 5. Start Kafka Server
+Open Terminal 2:
+
+cd /opt/kafka
+bin/kafka-server-start.sh config/server.properties
+✅ 6. Test Kafka
+➤ Create a Topic
+cd /opt/kafka
+bin/kafka-topics.sh --create --topic send-email --bootstrap-server localhost:9092 --partitions 1 --replication-factor 1
+
+
+Update Application.properties file: spring.kafka.bootstrap-servers=ec2-3-109-202-53.ap-south-1.compute.amazonaws.com:9092
+
+✅ 6. Modify server.properties file
+
+sudo vim /opt/kafka/config/server.properties
+
+then add
+
+listeners=PLAINTEXT://0.0.0.0:9092
+advertised.listeners=PLAINTEXT://ec2-13-232-203-118.ap-south-1.compute.amazonaws.com:9092
+
+
+AWS Security Group
+Make sure your EC2 instance's security group:
+
+Allows inbound traffic on port 9092 from your client IP or anywhere (0.0.0.0/0 for testing)
+
+Allows inbound traffic on port 2181 if Zookeeper is accessed externally (optional)
+
+
+
+------------------------------------------------------------------------------
+
+-->>This file is not added because some spring boot version issue but before using this code check the version issue 
+because it's still not solved.
+
+--> add this
+
+<dependency>
+			<groupId>org.springframework.kafka</groupId>
+			<artifactId>spring-kafka</artifactId>
+</dependency>
+
+
+---------------------------------------------------------------------------------
+
+-->>Creat a config file and add this 
+
+package com.propertyservice.config;
+
+import java.util.HashMap;
+import java.util.Map;
+
+
+import com.propertyservice.Constants.AppConstants;
+import com.propertyservice.Dto.EmailRequest;
+import org.apache.kafka.clients.consumer.ConsumerConfig;
+import org.apache.kafka.common.serialization.StringDeserializer;
+import org.springframework.context.annotation.Bean;
+import org.springframework.context.annotation.Configuration;
+import org.springframework.kafka.config.ConcurrentKafkaListenerContainerFactory;
+import org.springframework.kafka.core.ConsumerFactory;
+import org.springframework.kafka.core.DefaultKafkaConsumerFactory;
+import org.springframework.kafka.support.serializer.JsonDeserializer;
+
+
+
+@Configuration
+public class KafkaConsumerConfig {
+
+    @Bean
+    public ConsumerFactory<String, EmailRequest> consumerFactory() {
+
+        Map<String, Object> kafkaConfigProps = new HashMap<String, Object>();
+
+        kafkaConfigProps .put(ConsumerConfig.BOOTSTRAP_SERVERS_CONFIG, AppConstants.KAFKA_HOST);
+        kafkaConfigProps .put(ConsumerConfig.KEY_DESERIALIZER_CLASS_CONFIG, StringDeserializer.class);
+        kafkaConfigProps .put(ConsumerConfig.VALUE_DESERIALIZER_CLASS_CONFIG, JsonDeserializer.class);
+
+        return new DefaultKafkaConsumerFactory<>(kafkaConfigProps, new StringDeserializer(), new JsonDeserializer<>());
+
+    }
+
+    @Bean
+    public ConcurrentKafkaListenerContainerFactory<String, EmailRequest> kafkaListnerFactory() {
+
+        ConcurrentKafkaListenerContainerFactory<String, EmailRequest> factory =
+                new ConcurrentKafkaListenerContainerFactory<>();
+
+        factory.setConsumerFactory(consumerFactory());
+
+        return factory;
+    }
+
+}
+-----------------------------------------------------------------------------------
+
+-->> Creat this in DTO file
+
+package com.propertyservice.Dto;
+
+public class EmailRequest {
+
+    private String to;
+    private String subject;
+    private String body;
+
+
+
+    public EmailRequest(String to, String subject, String body) {
+        this.to = to;
+        this.subject = subject;
+        this.body = body;
+    }
+    public String getTo() {
+        return to;
+    }
+    public String getSubject() {
+        return subject;
+    }
+    public String getBody() {
+        return body;
+    }
+    public void setTo(String to) {
+        this.to = to;
+    }
+    public void setSubject(String subject) {
+        this.subject = subject;
+    }
+    public void setBody(String body) {
+        this.body = body;
+    }
+
+
+}
+------------------------------------------------------------
+
+-->> Creat this in Service file
+
+package com.propertyservice.Service;
+
+public class AppConstants {
+    public static final String TOPIC = "sent-email";
+    public static final String KAFKA_HOST = "localhost:9092";(Updated your AWS link)
+}
+---------------------------------------------------
+
+package com.propertyservice.Service;
+
+import com.propertyservice.Application;
+import com.propertyservice.Controller.PropertyController;
+import com.propertyservice.Dto.APIResponse;
+import com.propertyservice.Dto.EmailRequest;
+import com.propertyservice.Dto.PropertyDto;
+import com.propertyservice.Dto.RoomsDto;
+import com.propertyservice.Entity.*;
+import com.propertyservice.Repository.*;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.kafka.core.KafkaTemplate;
+import org.springframework.stereotype.Service;
+import org.springframework.web.multipart.MultipartFile;
+
+import java.time.LocalDate;
+import java.util.List;
+
+@Service
+public class PropertyService {
+
+
+    @Autowired
+    private PropertyRepository propertyRepository;
+    @Autowired
+    private AreaRepository areaRepository;
+    @Autowired
+    private CityRepository cityRepository;
+    @Autowired
+    private StateRepository stateRepository;
+    @Autowired
+    private RoomsRepository roomRepository;
+    @Autowired
+    private RoomAvailabilityRepository availabilityRepository;
+
+    @Autowired
+    private KafkaTemplate<String, EmailRequest> kafkaTemplate;
+
+    @Autowired
+    private PropertyPhotoRepository propertyPhotoRepository;
+
+    @Autowired
+    private S3Service s3Service;
+
+
+    public Property addProperty(PropertyDto dto, MultipartFile[] files) {
+
+        Area area = areaRepository.findByName(dto.getArea());
+        City city = cityRepository.findByName(dto.getCity());
+        State state = stateRepository.findByName(dto.getState());
+
+
+        Property property = new Property();
+        property.setName(dto.getName());
+        property.setNumberOfBathrooms(dto.getNumberOfBathrooms());
+        property.setNumberOfBeds(dto.getNumberOfBeds());
+        property.setNumberOfRooms(dto.getNumberOfRooms());
+        property.setNumberOfGuestAllowed(dto.getNumberOfGuestAllowed());
+        property.setArea(area);
+        property.setCity(city);
+        property.setState(state);
+
+        Property saveProperty = propertyRepository.save(property);
+
+        for(RoomsDto roomsDto: dto.getRooms()){
+            Rooms rooms = new Rooms();
+            rooms.setProperty(saveProperty);
+            rooms.setRoomType(roomsDto.getRoomType());
+            rooms.setBasePrice(roomsDto.getBasePrice());
+            roomRepository.save(rooms);
+        }
+
+        // this code is for kafka 
+        EmailRequest request = new EmailRequest("rajesh@das","property added","thanks");
+        kafkaTemplate.send(AppConstants.TOPIC,request);
+
+        List<String> filreUrls = s3Service.uploadFiles(files);
+        for (String url :filreUrls){
+            PropertyPhotos photos = new PropertyPhotos();
+            photos.setUrl(url);
+            photos.setProperty(saveProperty);
+            propertyPhotoRepository.save(photos);
+
+        }
+        
+
+        return saveProperty;
+
+    }
+
+
+    public APIResponse searchProperty(String name, LocalDate date) {
+        List<Property> properties = propertyRepository.searchAvailableProperties(name, date);
+        APIResponse<List<Property>> response = new APIResponse<>();
+        response.setMessage("Search result");
+        response.setStatus(200);
+        response.setData(properties);
+
+        return response;
+    }
+}
+----------------------------------------------------------------------------
+----------------------------------------------------------------------------
+Notificationservice :-
+
+-->>Config file 
+
+package com.notificationservice.Config;
+
+public class AppConstants {
+    public static final String TOPIC = "sent-email";
+    public static final String KAFKA_HOST = "localhost:9092";
+}
+
+
+-->> again add in Config file
+
+package com.notificationservice.Config;
+
+import java.util.HashMap;
+import java.util.Map;
+
+import com.notificationservice.dto.EmailRequest;
+import org.apache.kafka.clients.consumer.ConsumerConfig;
+import org.apache.kafka.common.serialization.StringDeserializer;
+import org.springframework.context.annotation.Bean;
+import org.springframework.context.annotation.Configuration;
+import org.springframework.kafka.config.ConcurrentKafkaListenerContainerFactory;
+import org.springframework.kafka.core.ConsumerFactory;
+import org.springframework.kafka.core.DefaultKafkaConsumerFactory;
+import org.springframework.kafka.support.serializer.JsonDeserializer;
+
+
+@Configuration
+public class KafkaConsumerConfig {
+
+    @Bean
+    public ConsumerFactory<String, EmailRequest> consumerFactory() {
+
+        Map<String, Object> kafkaConfigProps = new HashMap<String, Object>();
+
+        kafkaConfigProps .put(ConsumerConfig.BOOTSTRAP_SERVERS_CONFIG, AppConstants.KAFKA_HOST);
+        kafkaConfigProps .put(ConsumerConfig.KEY_DESERIALIZER_CLASS_CONFIG, StringDeserializer.class);
+        kafkaConfigProps .put(ConsumerConfig.VALUE_DESERIALIZER_CLASS_CONFIG, JsonDeserializer.class);
+
+        return new DefaultKafkaConsumerFactory<>(kafkaConfigProps, new StringDeserializer(), new JsonDeserializer<>());
+
+    }
+
+    @Bean
+    public ConcurrentKafkaListenerContainerFactory<String,EmailRequest> kafkaListnerFactory() {
+
+        ConcurrentKafkaListenerContainerFactory<String, EmailRequest> factory =
+                new ConcurrentKafkaListenerContainerFactory<>();
+
+        factory.setConsumerFactory(consumerFactory());
+
+        return factory;
+    }
+
+}
+
+-->> add in DTO file
+
+package com.notificationservice.dto;
+
+public class EmailRequest {
+
+    private String to;
+    private String subject;
+    private String body;
+
+
+
+    public EmailRequest(String to, String subject, String body) {
+        this.to = to;
+        this.subject = subject;
+        this.body = body;
+    }
+    public String getTo() {
+        return to;
+    }
+    public String getSubject() {
+        return subject;
+    }
+    public String getBody() {
+        return body;
+    }
+    public void setTo(String to) {
+        this.to = to;
+    }
+    public void setSubject(String subject) {
+        this.subject = subject;
+    }
+    public void setBody(String body) {
+        this.body = body;
+    }
+
+    @Override
+    public String toString() {
+        return "EmailRequest{" +
+                "to='" + to + '\'' +
+                ", subject='" + subject + '\'' +
+                ", body='" + body + '\'' +
+                '}';
+    }
+}
+
+-->> add in Service file
+
+
+package com.notificationservice.Service;
+
+import com.notificationservice.Config.AppConstants;
+import com.notificationservice.dto.EmailRequest;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.kafka.annotation.KafkaListener;
+import org.springframework.mail.SimpleMailMessage;
+import org.springframework.mail.javamail.JavaMailSender;
+import org.springframework.stereotype.Service;
+import tools.jackson.databind.ObjectMapper;
+
+@Service
+public class Application {
+
+    @Autowired
+    private JavaMailSender javaMailSender;
+
+        @KafkaListener(topics = AppConstants.TOPIC, groupId = "group_Email")
+        public void consumeMessage(String emailRequest) {
+            ObjectMapper mapper = new ObjectMapper();
+            EmailRequest request = mapper.readValue(emailRequest,EmailRequest.class);
+            SimpleMailMessage sm = new SimpleMailMessage();
+            sm.setTo(request.getTo());
+            sm.setSubject(request.getSubject());
+            sm.setText(request.getBody());
+
+            javaMailSender.send(sm);
+
+        }
+
+
+}
+
+
