@@ -1,6 +1,10 @@
 package com.propertyservice.Entity;
 
+import com.fasterxml.jackson.annotation.JsonManagedReference;
 import jakarta.persistence.*;
+
+import java.util.ArrayList;
+import java.util.List;
 
 @Entity
 @Table(name = "property")
@@ -34,6 +38,10 @@ public class Property {
     @ManyToOne
     @JoinColumn(name = "state_id")
     private State state;
+
+    @OneToMany(mappedBy = "property", cascade = CascadeType.ALL, orphanRemoval = true)
+    @JsonManagedReference
+    private List<Rooms> rooms = new ArrayList<>();
 
     public State getState() {
         return state;

@@ -2,6 +2,7 @@ package com.propertyservice.Service;
 
 import com.propertyservice.Application;
 import com.propertyservice.Controller.PropertyController;
+import com.propertyservice.Dto.APIResponse;
 import com.propertyservice.Dto.EmailRequest;
 import com.propertyservice.Dto.PropertyDto;
 import com.propertyservice.Dto.RoomsDto;
@@ -12,6 +13,7 @@ import org.springframework.kafka.core.KafkaTemplate;
 import org.springframework.stereotype.Service;
 import org.springframework.web.multipart.MultipartFile;
 
+import java.time.LocalDate;
 import java.util.List;
 
 @Service
@@ -30,9 +32,6 @@ public class PropertyService {
     private RoomsRepository roomRepository;
     @Autowired
     private RoomAvailabilityRepository availabilityRepository;
-
-    @Autowired
-    private KafkaTemplate<String, EmailRequest> kafkaTemplate;
 
     @Autowired
     private PropertyPhotoRepository propertyPhotoRepository;
@@ -68,9 +67,6 @@ public class PropertyService {
             roomRepository.save(rooms);
         }
 
-        EmailRequest request = new EmailRequest("rajesh@das","property added","thanks");
-        kafkaTemplate.send(AppConstants.TOPIC,request);
-
         List<String> filreUrls = s3Service.uploadFiles(files);
         for (String url :filreUrls){
             PropertyPhotos photos = new PropertyPhotos();
@@ -83,5 +79,16 @@ public class PropertyService {
 
         return saveProperty;
 
+    }
+
+
+    public APIResponse searchProperty(String name, LocalDate date) {
+        List<Property> properties = propertyRepository.searchAvailableProperties(name, date);
+        APIResponse<List<Property>> response = new APIResponse<>();
+        response.setMessage("Search result");
+        response.setStatus(200);
+        response.setData(properties);
+
+        return response;
     }
 }

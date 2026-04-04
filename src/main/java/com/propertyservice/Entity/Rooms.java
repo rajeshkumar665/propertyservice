@@ -1,5 +1,6 @@
 package com.propertyservice.Entity;
 
+import com.fasterxml.jackson.annotation.JsonBackReference;
 import jakarta.persistence.*;
 
 @Entity
@@ -17,6 +18,7 @@ public class Rooms {
 
     @ManyToOne
     @JoinColumn(name = "property_id")
+    @JsonBackReference
     private Property property;
 
     public String getRoomType() {

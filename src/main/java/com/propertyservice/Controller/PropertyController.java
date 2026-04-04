@@ -8,15 +8,15 @@ import com.propertyservice.Service.PropertyService;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.json.JsonParseException;
+import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
-import org.springframework.web.bind.annotation.PostMapping;
-import org.springframework.web.bind.annotation.RequestMapping;
-import org.springframework.web.bind.annotation.RequestParam;
-import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
 import tools.jackson.databind.ObjectMapper;
+
+import java.time.LocalDate;
 
 
 @RestController
@@ -60,5 +60,15 @@ public class PropertyController {
 
 
         return new ResponseEntity<>(response,HttpStatus.CREATED);
+    }
+
+    @GetMapping("/search-property")
+    public APIResponse searchProperty(
+            @RequestParam String name,
+            @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE)LocalDate date
+            ){
+       APIResponse response = propertyService.searchProperty(name,date);
+       return response;
+
     }
 }
