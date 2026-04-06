@@ -3,6 +3,8 @@ package com.propertyservice.Controller;
 import com.propertyservice.Dto.APIResponse;
 import com.propertyservice.Dto.PropertyDto;
 import com.propertyservice.Entity.Property;
+import com.propertyservice.Entity.RoomAvailability;
+import com.propertyservice.Entity.Rooms;
 import com.propertyservice.Service.PropertyService;
 
 import org.slf4j.LoggerFactory;
@@ -17,6 +19,7 @@ import org.springframework.web.multipart.MultipartFile;
 import tools.jackson.databind.ObjectMapper;
 
 import java.time.LocalDate;
+import java.util.List;
 
 
 @RestController
@@ -70,5 +73,30 @@ public class PropertyController {
        APIResponse response = propertyService.searchProperty(name,date);
        return response;
 
+    }
+    @GetMapping("/property-id")
+    public APIResponse<PropertyDto> getPropertyById(@RequestParam long id){
+        APIResponse<PropertyDto> response = propertyService.findPropertyById(id);
+        return response;
+    }
+    @GetMapping("/room-available-room-id")
+    public APIResponse<List<RoomAvailability>> getTotalRoomsAvailable(@RequestParam long id){
+        List<RoomAvailability> totalRooms = propertyService.getTotalRoomsAvailable(id);
+
+        APIResponse<List<RoomAvailability>> response = new APIResponse<>();
+        response.setMessage("Total rooms");
+        response.setStatus(200);
+        response.setData(totalRooms);
+        return response;
+    }
+    @GetMapping("/room-id")
+    public APIResponse<Rooms> getRoomType(@RequestParam long id){
+        Rooms room = propertyService.getRoomById(id);
+
+        APIResponse<Rooms> response = new APIResponse<>();
+        response.setMessage("Total rooms");
+        response.setStatus(200);
+        response.setData(room);
+        return response;
     }
 }

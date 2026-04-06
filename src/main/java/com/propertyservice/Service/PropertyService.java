@@ -8,13 +8,16 @@ import com.propertyservice.Dto.PropertyDto;
 import com.propertyservice.Dto.RoomsDto;
 import com.propertyservice.Entity.*;
 import com.propertyservice.Repository.*;
+import org.springframework.beans.BeanUtils;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.kafka.core.KafkaTemplate;
 import org.springframework.stereotype.Service;
 import org.springframework.web.multipart.MultipartFile;
 
 import java.time.LocalDate;
+import java.util.ArrayList;
 import java.util.List;
+import java.util.Optional;
 
 @Service
 public class PropertyService {
@@ -90,5 +93,41 @@ public class PropertyService {
         response.setData(properties);
 
         return response;
+    }
+
+    public APIResponse<PropertyDto> findPropertyById(long id) {
+
+        APIResponse<PropertyDto> response = new APIResponse<>();
+        PropertyDto dto = new PropertyDto();
+        Optional<Property> opProp = propertyRepository.findById(id);
+        if(opProp.isPresent()){
+            Property property = opProp.get();
+            dto.setArea(property.getArea().getName());
+            dto.setCity(property.getCity().getName());
+            dto.setState(property.getState().getName());
+            List<Rooms> rooms = property.getRooms();
+            List<RoomsDto> roomsDto = new ArrayList<>();
+            for (Rooms room:rooms){
+                RoomsDto roomDto = new RoomsDto();
+                BeanUtils.copyProperties(room,roomDto);
+                roomsDto.add(roomDto);
+            }
+            dto.setRooms(roomsDto);
+            BeanUtils.copyProperties(property, dto);
+            response.setMessage("Matching Record");
+            response.setStatus(200);
+            response.setData(dto);
+            return response;
+        }
+
+        return null;
+    }
+    public List<RoomAvailability> getTotalRoomsAvailable(long id) {
+        return availabilityRepository.findByRoomId(id);
+
+    }
+
+    public Rooms getRoomById(long id) {
+        return roomRepository.findById(id).get();
     }
 }

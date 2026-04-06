@@ -43,6 +43,14 @@ public class Property {
     @JsonManagedReference
     private List<Rooms> rooms = new ArrayList<>();
 
+    public List<Rooms> getRooms() {
+        return rooms;
+    }
+
+    public void setRooms(List<Rooms> rooms) {
+        this.rooms = rooms;
+    }
+
     public State getState() {
         return state;
     }
