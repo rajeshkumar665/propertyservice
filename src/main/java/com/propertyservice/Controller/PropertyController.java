@@ -5,6 +5,7 @@ import com.propertyservice.Dto.PropertyDto;
 import com.propertyservice.Entity.Property;
 import com.propertyservice.Entity.RoomAvailability;
 import com.propertyservice.Entity.Rooms;
+import com.propertyservice.Repository.RoomAvailabilityRepository;
 import com.propertyservice.Service.PropertyService;
 
 import org.slf4j.LoggerFactory;
@@ -28,6 +29,9 @@ public class PropertyController {
 
     @Autowired
     private PropertyService propertyService;
+    
+    @Autowired
+    private RoomAvailabilityRepository roomAvailabilityRepository;
 
 
     private static final org.slf4j.Logger logger = LoggerFactory.getLogger(PropertyController.class);
@@ -99,4 +103,21 @@ public class PropertyController {
         response.setData(room);
         return response;
     }
+
+    @PutMapping("/decrement-availability")
+    public APIResponse<String> decrementAvailability(
+            @RequestParam long roomAvailabilityId,
+            @RequestBody List<LocalDate> dates) {
+
+        logger.info("Decrementing availability for roomAvailabilityId: {}", roomAvailabilityId);
+
+        propertyService.decrementRoomAvailability(roomAvailabilityId, dates);
+
+        APIResponse<String> response = new APIResponse<>();
+        response.setMessage("Availability updated successfully");
+        response.setStatus(200);
+        response.setData("Success");
+        return response;
+    }
+
 }

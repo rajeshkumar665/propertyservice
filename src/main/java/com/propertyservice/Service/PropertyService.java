@@ -8,6 +8,9 @@ import com.propertyservice.Dto.PropertyDto;
 import com.propertyservice.Dto.RoomsDto;
 import com.propertyservice.Entity.*;
 import com.propertyservice.Repository.*;
+import jakarta.transaction.Transactional;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.beans.BeanUtils;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.kafka.core.KafkaTemplate;
@@ -21,6 +24,10 @@ import java.util.Optional;
 
 @Service
 public class PropertyService {
+
+
+    private static final Logger log = LoggerFactory.getLogger(PropertyService.class);
+
 
 
     @Autowired
@@ -129,5 +136,24 @@ public class PropertyService {
 
     public Rooms getRoomById(long id) {
         return roomRepository.findById(id).get();
+    }
+
+    @Transactional
+    public void decrementRoomAvailability(long roomAvailabilityId, List<LocalDate> dates) {
+        for (LocalDate date : dates) {
+            int updatedRows = availabilityRepository.decrementAvailability(roomAvailabilityId, date);
+
+            if (updatedRows == 0) {
+                log.error("Could not decrement availability for roomAvailabilityId: {} on date: {}",
+                        roomAvailabilityId, date);
+                // Throwing here triggers @Transactional rollback for all dates in this call
+                throw new RuntimeException(
+                        "Room already fully booked for date: " + date
+                );
+            }
+
+            log.info("Decremented availability for roomAvailabilityId: {} on date: {}",
+                    roomAvailabilityId, date);
+        }
     }
 }
